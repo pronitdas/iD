@@ -886,6 +886,14 @@ button.add-note svg.icon {
     background: #000;
     color: #ccc;
 }
+.tooltip.dark kbd,
+.map-pane .tooltip kbd {
+    background-color: #666;
+    border: solid 1px #444;
+    border-bottom-color: #333;
+    box-shadow: inset 0 -1px 0 #333;
+    color: #eee;
+}
 
 /* Exceptions for tooltip layouts */
 
@@ -1181,6 +1189,9 @@ button.add-preset.disabled .preset-icon-container {
     text-overflow: ellipsis;
     overflow: hidden;
     padding: 20px;
+}
+.preset-list-button .label-inner .namepart:nth-child(2) {
+    font-weight: normal;
 }
 
 .header button,
@@ -2395,20 +2406,28 @@ button.preset-favorite-button.active .icon {
     margin-left: 6px;
 }
 
-.form-field-input-multicombo li.chips {
+.form-field-input-multicombo li.chip {
     background-color: #eff2f7;
     border: 1px solid #ccd5e3;
     line-height: 25px;
     max-width: 100%;
 }
-[dir='ltr'] .form-field-input-multicombo li.chips {
+[dir='ltr'] .form-field-input-multicombo li.chip {
     padding: 2px 0px 2px 5px;
 }
-[dir='rtl'] .form-field-input-multicombo li.chips {
+[dir='rtl'] .form-field-input-multicombo li.chip {
     padding: 2px 5px 2px 0px;
 }
+.form-field-input-multicombo li.chip.draggable {
+    cursor: grab;
+}
+.form-field-input-multicombo li.chip.dragging {
+    opacity: 0.75;
+    z-index: 3000;
+    cursor: grabbing;
+}
 
-.form-field-input-multicombo li.chips span {
+.form-field-input-multicombo li.chip span {
     display: block;
     flex: 1 1 auto;
     overflow: hidden;
@@ -2442,7 +2461,7 @@ button.preset-favorite-button.active .icon {
     border-radius: 4px !important;
 }
 
-.form-field-input-multicombo .full-line-chips li.chips {
+.form-field-input-multicombo .full-line-chips li.chip {
     width: 100%;
 }
 .form-field-input-multicombo .full-line-chips .input-wrap {
@@ -2507,7 +2526,7 @@ button.preset-favorite-button.active .icon {
 ------------------------------------------------------- */
 .form-field-input-check {
     display: flex;
-    align-items: end;
+    align-items: center;
     background: #fff;
     padding: 5px 10px;
     color: #7092ff;
@@ -2519,6 +2538,7 @@ button.preset-favorite-button.active .icon {
     flex: 0 1 auto;
     min-height: 20px;
     width: 20px;
+    margin-top: 0;
 }
 .form-field-input-check > span {
     flex: 1 1 auto;
@@ -2529,6 +2549,12 @@ button.preset-favorite-button.active .icon {
     border: 1px solid #ccd5e3;
     border-radius: 2px;
     padding: 0px 8px;
+}
+[dir='ltr'] .form-field-input-check > .reverser.button {
+    padding-right: 2px;
+}
+[dir='rtl'] .form-field-input-check > .reverser.button {
+    padding-left: 2px;
 }
 .form-field-input-check > .reverser.button.hide {
     display: none;
@@ -3353,7 +3379,6 @@ img.tag-reference-wiki-image {
     box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.3);
     */
 }
-.raw-member-editor .member-row.dragging
 
 /* preserve extra space at bottom of inspector to allow for dropdown options - #5280 */
 .raw-membership-editor.inspector-inner {
@@ -3580,7 +3605,7 @@ img.tag-reference-wiki-image {
     right: 0;
     top: 141px;
     width: 40px;
-    position: fixed;
+    position: absolute;
     z-index: 100;
 }
 [dir='rtl'] .map-controls {
@@ -3659,22 +3684,18 @@ div.full-screen > button:hover {
 
 /* Background / Map Data / Help Pane buttons
 ------------------------------------------------------- */
-.help-control > button {
-    border-radius: 0 0 0 4px;
-}
-[dir='rtl'] .help-control > button {
-    border-radius: 0 0 4px 0;
-}
-
-.map-data-control button {
-    border-radius: 0;
-}
-
 .background-control > button {
     border-radius: 4px 0 0 0;
 }
 [dir='rtl'] .background-control > button {
     border-radius: 0 4px 0 0;
+}
+
+.help-control > button {
+    border-radius: 0 0 0 4px;
+}
+[dir='rtl'] .help-control > button {
+    border-radius: 0 0 4px 0;
 }
 
 
@@ -4035,6 +4056,7 @@ button.autofix.action.active {
 
 input.square-degrees-input {
     padding: 2px !important; /* important needed for rtl */
+    width: 40px;
     height: unset;
     text-align: center;
     background: rgba(0,0,0,0);
@@ -4487,13 +4509,13 @@ li.issue-fix-item:not(.actionable) .fix-icon {
 }
 
 .inspector-hover a,
-.inspector-hover .form-field-input-multicombo .chips,
+.inspector-hover .form-field-input-multicombo .chip,
 .inspector-hover .form-field-input-check span,
 .inspector-hover .entity-issues .issue .icon {
     color: #666;
 }
 
-.inspector-hover .form-field-input-multicombo .chips {
+.inspector-hover .form-field-input-multicombo .chip {
     background: #eee;
     border: 1px solid #ccc;
 }
@@ -4524,11 +4546,12 @@ li.issue-fix-item:not(.actionable) .fix-icon {
 .inspector-hover .combobox-caret,
 .inspector-hover .header button,
 .inspector-hover .quick-links,
-.inspector-hover .form-field-input-multicombo .chips .remove,
+.inspector-hover .form-field-input-multicombo .chip .remove,
 .inspector-hover .hide-toggle:before,
 .inspector-hover .more-fields,
 .inspector-hover .field-label button,
-.inspector-hover .tag-row button {
+.inspector-hover .tag-row button,
+.inspector-hover .footer * {
     opacity: 0;
 }
 
@@ -5194,7 +5217,7 @@ img.tile-debug {
 
 .api-status {
     text-align: right;
-    padding: 0px 10px;
+    padding: 1px 10px;
     color: #eee;
     flex: 1 1 auto;
 }
@@ -5208,11 +5231,13 @@ img.tile-debug {
     background: #a22;
 }
 
-.api-status-login {
-    color: #aaf;
+.api-status a {
+    text-decoration: underline;
+    color: #ccc;
+    pointer-events: all;
 }
-.api-status-login:hover {
-    color: #ccf;
+.api-status a:hover {
+    color: inherit;
 }
 
 /* Notification Badges
@@ -5299,14 +5324,16 @@ img.tile-debug {
 .shaded:before {
     content:'';
     background: rgba(0,0,0,0.5);
-    position: fixed;
+    position: absolute;
     left: 0px; right: 0px; top: 0px; bottom: 0px;
 }
 
 .modal-section {
-    width: 100%;
     padding: 20px;
     border-bottom: 1px solid #ccc;
+}
+.modal-section p:not(:last-of-type) {
+    padding-bottom: 20px;
 }
 .modal-section.header h3 {
     padding: 0;

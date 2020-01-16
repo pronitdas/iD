@@ -5,11 +5,13 @@
         "operator",
         "address",
         "building_area",
+        "opening_hours",
         "atm",
         "drive_through"
     ],
     "moreFields": [
         "air_conditioning",
+        "brand",
         "currency_multi",
         "email",
         "fax",
@@ -18,7 +20,6 @@
         "internet_access/fee",
         "internet_access/ssid",
         "level",
-        "opening_hours",
         "phone",
         "ref/vatin",
         "website",

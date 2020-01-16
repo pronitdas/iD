@@ -6,11 +6,13 @@
         "address",
         "building_area",
         "opening_hours",
-        "phone"
+        "phone",
+        "website"
     ],
     "moreFields": [
         "air_conditioning",
         "bar",
+        "brand",
         "brewery",
         "capacity",
         "delivery",
@@ -31,7 +33,6 @@
         "smoking",
         "stars",
         "takeaway",
-        "website",
         "wheelchair"
     ],
     "geometry": [

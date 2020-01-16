@@ -8,7 +8,7 @@
     "moreFields": [
         "{amenity/parking}",
         "height",
-        "levels"
+        "building/levels"
     ],
     "geometry": [
         "area"
@@ -37,6 +37,5 @@
         "parking ramp",
         "parking structure"
     ],
-    "matchScore": 1.05,
     "name": "Multilevel Parking Garage"
 }

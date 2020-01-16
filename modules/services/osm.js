@@ -2,6 +2,7 @@ import _throttle from 'lodash-es/throttle';
 
 import { dispatch as d3_dispatch } from 'd3-dispatch';
 import { xml as d3_xml } from 'd3-fetch';
+import { json as d3_json } from 'd3-fetch';
 
 import osmAuth from 'osm-auth';
 import RBush from 'rbush';
@@ -13,7 +14,7 @@ import { utilArrayChunk, utilArrayGroupBy, utilArrayUniq, utilRebind, utilTiler,
 
 
 var tiler = utilTiler();
-var dispatch = d3_dispatch('authLoading', 'authDone', 'change', 'loading', 'loaded', 'loadedNotes');
+var dispatch = d3_dispatch('apiStatusChange', 'authLoading', 'authDone', 'change', 'loading', 'loaded', 'loadedNotes');
 var urlroot = 'https://www.openstreetmap.org';
 var oauth = osmAuth({
     url: urlroot,
@@ -27,6 +28,7 @@ var _blacklists = ['.*\.google(apis)?\..*/(vt|kh)[\?/].*([xyz]=.*){3}.*'];
 var _tileCache = { toLoad: {}, loaded: {}, inflight: {}, seen: {}, rtree: new RBush() };
 var _noteCache = { toLoad: {}, loaded: {}, inflight: {}, inflightPost: {}, note: {}, closed: {}, rtree: new RBush() };
 var _userCache = { toLoad: {}, user: {} };
+var _cachedApiStatus;
 var _changeset = {};
 
 var _deferred = new Set();
@@ -88,6 +90,14 @@ function getNodes(obj) {
     return nodes;
 }
 
+function getNodesJSON(obj) {
+    var elems = obj.nodes;
+    var nodes = new Array(elems.length);
+    for (var i = 0, l = elems.length; i < l; i++) {
+        nodes[i] = 'n' + elems[i];
+    }
+    return nodes;
+}
 
 function getTags(obj) {
     var elems = obj.getElementsByTagName('tag');
@@ -115,6 +125,19 @@ function getMembers(obj) {
     return members;
 }
 
+function getMembersJSON(obj) {
+    var elems = obj.members;
+    var members = new Array(elems.length);
+    for (var i = 0, l = elems.length; i < l; i++) {
+        var attrs = elems[i];
+        members[i] = {
+            id: attrs.type[0] + attrs.ref,
+            type: attrs.type,
+            role: attrs.role
+        };
+    }
+    return members;
+}
 
 function getVisible(attrs) {
     return (!attrs.visible || attrs.visible.value !== 'false');
@@ -164,6 +187,94 @@ function encodeNoteRtree(note) {
     };
 }
 
+
+var jsonparsers = {
+
+    node: function nodeData(obj, uid) {
+        return new osmNode({
+            id:  uid,
+            visible: true,
+            version: obj.version.toString(),
+            changeset: obj.changeset.toString(),
+            timestamp: obj.timestamp,
+            user: obj.user,
+            uid: obj.uid.toString(),
+            loc: [parseFloat(obj.lon), parseFloat(obj.lat)],
+            tags: obj.tags
+        });
+    },
+
+    way: function wayData(obj, uid) {
+        return new osmWay({
+            id:  uid,
+            visible: true,
+            version: obj.version.toString(),
+            changeset: obj.changeset.toString(),
+            timestamp: obj.timestamp,
+            user: obj.user,
+            uid: obj.uid.toString(),
+            tags: obj.tags,
+            nodes: getNodesJSON(obj)
+        });
+    },
+
+    relation: function relationData(obj, uid) {
+        return new osmRelation({
+            id:  uid,
+            visible: true,
+            version: obj.version.toString(),
+            changeset: obj.changeset.toString(),
+            timestamp: obj.timestamp,
+            user: obj.user,
+            uid: obj.uid.toString(),
+            tags: obj.tags,
+            members: getMembersJSON(obj)
+        });
+    }
+};
+
+function parseJSON(payload, callback, options) {
+    options = Object.assign({ skipSeen: true }, options);
+    if (!payload)  {
+        return callback({ message: 'No JSON', status: -1 });
+    }
+
+    var json = payload;
+    if (typeof json !== 'object')
+       json = JSON.parse(payload);
+
+    if (!json.elements)
+        return callback({ message: 'No JSON', status: -1 });
+
+    var children = json.elements;
+
+    var handle = window.requestIdleCallback(function() {
+        var results = [];
+        var result;
+        for (var i = 0; i < children.length; i++) {
+            result = parseChild(children[i]);
+            if (result) results.push(result);
+        }
+        callback(null, results);
+    });
+
+    _deferred.add(handle);
+
+    function parseChild(child) {
+        var parser = jsonparsers[child.type];
+        if (!parser) return null;
+
+        var uid;
+
+        uid = osmEntity.id.fromOSM(child.type, child.id);
+        if (options.skipSeen) {
+            if (_tileCache.seen[uid]) return null;  // avoid reparsing a "seen" entity
+            _tileCache.seen[uid] = true;
+        }
+
+        return parser(child, uid);
+    }
+}
 
 var parsers = {
     node: function nodeData(obj, uid) {
@@ -392,6 +503,7 @@ export default {
         _tileCache = { toLoad: {}, loaded: {}, inflight: {}, seen: {}, rtree: new RBush() };
         _noteCache = { toLoad: {}, loaded: {}, inflight: {}, inflightPost: {}, note: {}, closed: {}, rtree: new RBush() };
         _userCache = { toLoad: {}, user: {} };
+        _cachedApiStatus = undefined;
         _changeset = {};
 
         return this;
@@ -449,7 +561,7 @@ export default {
         var that = this;
         var cid = _connectionID;
 
-        function done(err, xml) {
+        function done(err, payload) {
             if (that.getConnectionId() !== cid) {
                 if (callback) callback({ message: 'Connection Switched', status: -1 });
                 return;
@@ -472,13 +584,20 @@ export default {
                         (err.status === 509 || err.status === 429)) {
                     _rateLimitError = err;
                     dispatch.call('change');
+                    that.reloadApiStatus();
+
+                } else if ((err && _cachedApiStatus === 'online') ||
+                    (!err && _cachedApiStatus !== 'online')) {
+                    // If the response's error state doesn't match the status,
+                    // it's likely we lost or gained the connection so reload the status
+                    that.reloadApiStatus();
                 }
 
                 if (callback) {
                     if (err) {
                         return callback(err);
                     } else {
-                        return parseXML(xml, callback, options);
+                        return parseXML(payload, callback, options);
                     }
                 }
             }
@@ -789,7 +908,10 @@ export default {
             .catch(function(err) { errback(err.message); });
 
         function done(err, xml) {
-            if (err) { return callback(err); }
+            if (err) {
+                // the status is null if no response could be retrieved
+                return callback(err, null);
+            }
 
             // update blacklists
             var elements = xml.getElementsByTagName('blacklist');
@@ -812,6 +934,24 @@ export default {
                 return callback(undefined, val);
             }
         }
+    },
+
+    // Calls `status` and dispatches an `apiStatusChange` event if the returned
+    // status differs from the cached status.
+    reloadApiStatus: function() {
+        // throttle to avoid unncessary API calls
+        if (!this.throttledReloadApiStatus) {
+            var that = this;
+            this.throttledReloadApiStatus = _throttle(function() {
+                that.status(function(err, status) {
+                    if (status !== _cachedApiStatus) {
+                        _cachedApiStatus = status;
+                        dispatch.call('apiStatusChange', that, err, status);
+                    }
+                });
+            }, 500);
+        }
+        this.throttledReloadApiStatus();
     },
 
 
